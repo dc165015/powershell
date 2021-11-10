@@ -147,7 +147,17 @@ Function reload { & $profile }
 
 Set-Alias -Name vi -Value nvim
 
-Function rebootwsl { Restart-Service LxssManager }
+Function Reboot-Wsl { Restart-Service LxssManager }
+
+Function Reboot-Docker {
+    restart-service *docker*
+    $processes = Get-Process "*docker desktop*"
+    if ($processes.Count -gt 0) {
+        $processes[0].Kill()
+        $processes[0].WaitForExit()
+    }
+    Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+}
 
 Function Set-Proxy ( $server, $port) {
     If ((Test-NetConnection -ComputerName $server -Port $port).TcpTestSucceeded) {
@@ -162,6 +172,10 @@ Function Set-Proxy ( $server, $port) {
 Function proxy {
     [System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebRequest]::GetSystemWebProxy()
     [System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+}
+
+Function proxyOff {
+    $Env:no_proxy = 1
 }
 
 Add-Type -AssemblyName Microsoft.VisualBasic
@@ -187,22 +201,23 @@ Function wsl2ports {
     $remoteport = bash.exe -c "ifconfig eth0 | grep 'inet '"
     $found = $remoteport -match '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}';
 
-    if( $found ){
-      $remoteport = $matches[0];
-    } else{
-      echo "The Script Exited, the ip address of WSL 2 cannot be found";
-      exit;
+    if ( $found ) {
+        $remoteport = $matches[0];
+    }
+    else {
+        echo "The Script Exited, the ip address of WSL 2 cannot be found";
+        exit;
     }
 
     #[Ports]
 
     #All the ports you want to forward separated by coma
-    $ports=@(80,443,10000,3000,5000);
+    $ports = @(80, 443, 10000, 3000, 5000);
 
 
     #[Static ip]
     #You can change the addr to your ip config to listen to a specific address
-    $addr='0.0.0.0';
+    $addr = '0.0.0.0';
     $ports_a = $ports -join ",";
 
 
@@ -213,9 +228,9 @@ Function wsl2ports {
     iex "New-NetFireWallRule -DisplayName 'WSL 2 Firewall Unlock' -Direction Outbound -LocalPort $ports_a -Action Allow -Protocol TCP";
     iex "New-NetFireWallRule -DisplayName 'WSL 2 Firewall Unlock' -Direction Inbound -LocalPort $ports_a -Action Allow -Protocol TCP";
 
-    for( $i = 0; $i -lt $ports.length; $i++ ){
-      $port = $ports[$i];
-      iex "netsh interface portproxy delete v4tov4 listenport=$port listenaddress=$addr";
-      iex "netsh interface portproxy add v4tov4 listenport=$port listenaddress=$addr connectport=$port connectaddress=$remoteport";
+    for ( $i = 0; $i -lt $ports.length; $i++ ) {
+        $port = $ports[$i];
+        iex "netsh interface portproxy delete v4tov4 listenport=$port listenaddress=$addr";
+        iex "netsh interface portproxy add v4tov4 listenport=$port listenaddress=$addr connectport=$port connectaddress=$remoteport";
     }
 }
